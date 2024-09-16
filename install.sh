@@ -1,6 +1,10 @@
 #!/bin/sh
 PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
 
+# Define working directory early
+WORKDIR="/home/cloudfly"
+WORKDATA="${WORKDIR}/data.txt"
+
 random() {
 	tr </dev/urandom -dc A-Za-z0-9 | head -c5
 	echo
@@ -13,6 +17,7 @@ gen64() {
 	}
 	echo "$1:$(ip64):$(ip64):$(ip64):$(ip64)"
 }
+
 install_3proxy() {
     echo "installing 3proxy"
     URL="https://github.com/z3APA3A/3proxy/archive/3proxy-0.8.6.tar.gz"
@@ -21,9 +26,6 @@ install_3proxy() {
     make -f Makefile.Linux
     mkdir -p /usr/local/etc/3proxy/{bin,logs,stat}
     cp src/3proxy /usr/local/etc/3proxy/bin/
-    #cp ./scripts/rc.d/proxy.sh /etc/init.d/3proxy
-    #chmod +x /etc/init.d/3proxy
-    #chkconfig 3proxy on
     cd $WORKDIR
 }
 
@@ -55,7 +57,6 @@ $(awk -F "/" '{print $3 ":" $4 ":" $1 ":" $2 }' ${WORKDATA})
 EOF
 }
 
-
 gen_data() {
     seq $FIRST_PORT $LAST_PORT | while read port; do
         echo "//$IP4/$port/$(gen64 $IP6)"
@@ -84,15 +85,17 @@ yum -y install wget gcc net-tools bsdtar zip >/dev/null
 
 install_3proxy
 
-echo "working folder = /home/cloudfly"
-WORKDIR="/home/cloudfly"
-WORKDATA="${WORKDIR}/data.txt"
-mkdir $WORKDIR && cd $_
+mkdir $WORKDIR && cd $WORKDIR
 
 IP4=$(curl -4 -s icanhazip.com)
 IP6=$(curl -6 -s icanhazip.com | cut -f1-4 -d':')
 
-echo "Internal ip = ${IP4}. Exteranl sub for ip6 = ${IP6}"
+if [ -z "$IP4" ] || [ -z "$IP6" ]; then
+    echo "Error: Unable to fetch IP addresses."
+    exit 1
+fi
+
+echo "Internal IP = ${IP4}. External subnet for IP6 = ${IP6}"
 
 while :; do
   read -p "Enter FIRST_PORT between 33000 and 63000: " FIRST_PORT
@@ -105,8 +108,11 @@ while :; do
   fi
 done
 
-echo "How many proxy do you want to create? Example 1000"
-read COUNT
+while :; do
+  read -p "How many proxy do you want to create? Example 1000: " COUNT
+  [[ $COUNT =~ ^[0-9]+$ ]] || { echo "Enter a valid number"; continue; }
+  break
+done
 
 LAST_PORT=$(($FIRST_PORT + $COUNT - 1))
 echo "LAST_PORT is $LAST_PORT. Continue..."
@@ -125,6 +131,7 @@ ulimit -n 10048
 /usr/local/etc/3proxy/bin/3proxy /usr/local/etc/3proxy/3proxy.cfg
 EOF
 
+chmod +x /etc/rc.local
 bash /etc/rc.local
 
 gen_proxy_file_for_user
