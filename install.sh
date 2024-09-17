@@ -2,16 +2,16 @@
 PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
 
 random() {
-	tr </dev/urandom -dc A-Za-z0-9 | head -c6
-	echo
+    tr </dev/urandom -dc A-Za-z0-9 | head -c6
+    echo
 }
 
 array=(1 2 3 4 5 6 7 8 9 0 a b c d e f)
 gen64() {
-	ip64() {
-		echo "${array[$RANDOM % 16]}${array[$RANDOM % 16]}${array[$RANDOM % 16]}${array[$RANDOM % 16]}"
-	}
-	echo "$1:$(ip64):$(ip64):$(ip64):$(ip64)"
+    ip64() {
+        echo "${array[$RANDOM % 16]}${array[$RANDOM % 16]}${array[$RANDOM % 16]}${array[$RANDOM % 16]}"
+    }
+    echo "$1:$(ip64):$(ip64):$(ip64):$(ip64)"
 }
 
 install_3proxy() {
@@ -28,7 +28,7 @@ install_3proxy() {
 gen_3proxy() {
     cat <<EOF
 daemon
-maxconn 10000
+maxconn 2000
 nserver 1.1.1.1
 nserver 8.8.4.4
 nserver 2001:4860:4860::8888
@@ -40,14 +40,15 @@ setuid 65535
 stacksize 6291456 
 flush
 
-$(awk -F "/" '{print "proxy -6 -n -a -p" $4 " -i" $3 " -e"$5"\n" \
+$(awk -F "/" '{print "\n" \
+"proxy -6 -n -a -p" $2 " -i" $1 " -e"$3"\n" \
 "flush\n"}' ${WORKDATA})
 EOF
 }
 
 gen_proxy_file_for_user() {
     cat >proxy.txt <<EOF
-$(awk -F "/" '{print $3 ":" $4}' ${WORKDATA})
+$(awk -F "/" '{print $1 ":" $2}' ${WORKDATA})
 EOF
 }
 
@@ -59,7 +60,7 @@ gen_data() {
 
 gen_iptables() {
     cat <<EOF
-$(awk -F "/" '{print "iptables -I INPUT -p tcp --dport " $2 " -m state --state NEW -j ACCEPT"}' ${WORKDATA}) 
+$(awk -F "/" '{print "iptables -I INPUT -p tcp --dport " $2 " -m state --state NEW -j ACCEPT"}' ${WORKDATA})
 EOF
 }
 
@@ -68,9 +69,6 @@ gen_ifconfig() {
 $(awk -F "/" '{print "ifconfig eth0 inet6 add " $3 "/64"}' ${WORKDATA})
 EOF
 }
-
-echo "installing apps"
-yum -y install wget gcc net-tools bsdtar zip >/dev/null
 
 cat << EOF > /etc/rc.d/rc.local
 #!/bin/bash
@@ -103,7 +101,7 @@ while :; do
   fi
 done
 
-echo "How many proxy do you want to create? Example 1000"
+echo "How many proxies do you want to create? Example 1000"
 read COUNT
 
 LAST_PORT=$(($FIRST_PORT + $COUNT - 1))
@@ -122,7 +120,7 @@ bash ${WORKDIR}/boot_ifconfig.sh
 ulimit -n 100048
 /usr/local/etc/3proxy/bin/3proxy /usr/local/etc/3proxy/3proxy.cfg
 EOF
-chmod 0755 /etc/rc.local
+
 bash /etc/rc.local
 
 gen_proxy_file_for_user
