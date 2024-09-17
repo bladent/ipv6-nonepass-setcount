@@ -105,10 +105,11 @@ echo "LAST_PORT is $LAST_PORT. Continue..."
 gen_data >$WORKDIR/data.txt
 gen_iptables >$WORKDIR/boot_iptables.sh
 gen_ifconfig >$WORKDIR/boot_ifconfig.sh
-chmod +x boot_*.sh /etc/rc.d/rc.local
+chmod +x boot_*.sh
 
 gen_3proxy >/usr/local/etc/3proxy/3proxy.cfg
 
+# Sửa đổi /etc/rc.d/rc.local để đảm bảo khởi động đúng
 cat <<EOF >> /etc/rc.d/rc.local
 #!/bin/bash
 touch /var/lock/subsys/local
@@ -119,9 +120,11 @@ ulimit -n 10048
 exit 0
 EOF
 
+# Thêm quyền thực thi cho rc.local
 chmod +x /etc/rc.d/rc.local
 systemctl enable rc-local
 
+# Khởi động rc.local để áp dụng cấu hình
 bash /etc/rc.d/rc.local
 
 gen_proxy_file_for_user
